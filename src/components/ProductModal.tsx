@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Package, FileText, Tag, Plus, Trash2, Search, DollarSign, Calculator } from 'lucide-react';
 import { useApp, Product, ProductComponent } from '../contexts/AppContext';
+import { useSettings } from '../contexts/SettingsContext';
 
 interface ProductModalProps {
   product?: Product | null;
@@ -9,6 +10,7 @@ interface ProductModalProps {
 
 const ProductModal: React.FC<ProductModalProps> = ({ product, onClose }) => {
   const { addProduct, updateProduct, products, getAvailableComponents, calculateProductCost } = useApp();
+  const { productSettings } = useSettings();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -25,8 +27,8 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showComponentSearch, setShowComponentSearch] = useState(false);
 
-  const units = ['UN', 'M', 'M²', 'M³', 'KG', 'L', 'PC'];
-  const categories = ['Painéis', 'Ferragens', 'Madeiras', 'Vernizes', 'Colas', 'Parafusos', 'Portas', 'Gavetas', 'Prateleiras', 'Estruturas', 'Acessórios', 'Outros'];
+  const units = productSettings.units;
+  const categories = productSettings.categories;
   const productTypes = [
     { value: 'material_bruto', label: 'Material Bruto' },
     { value: 'parte_produto', label: 'Parte de Produto' },
@@ -48,11 +50,37 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, onClose }) => {
         supplier: product.supplier || ''
       });
       setComponents(product.components);
+    } else {
+      // Aplicar configurações padrão para novos produtos
+      if (productSettings.pricing.autoCalculateSalePrice && formData.cost_price) {
+        const costPrice = parseFloat(formData.cost_price);
+        const salePrice = costPrice * (1 + productSettings.pricing.defaultProfitMargin / 100);
+        setFormData(prev => ({
+          ...prev,
+          sale_price: salePrice.toFixed(2)
+        }));
+      }
     }
-  }, [product]);
+  }, [product, productSettings]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validações baseadas nas configurações
+    if (productSettings.validation.requireDescription && !formData.description.trim()) {
+      alert('Descrição é obrigatória!');
+      return;
+    }
+    
+    if (productSettings.validation.requireSupplier && formData.type === 'material_bruto' && !formData.supplier?.trim()) {
+      alert('Fornecedor é obrigatório para materiais brutos!');
+      return;
+    }
+    
+    if (productSettings.validation.minimumStockRequired && (!formData.min_stock || parseFloat(formData.min_stock) <= 0)) {
+      alert('Estoque mínimo é obrigatório!');
+      return;
+    }
     
     // Calcular custo total dos componentes
     const componentsCost = components.reduce((sum, comp) => sum + comp.total_cost, 0);
@@ -60,10 +88,31 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, onClose }) => {
       ? parseFloat(formData.cost_price) || 0
       : componentsCost;
     
+    // Calcular preço de venda automaticamente se habilitado
+    let finalSalePrice = formData.sale_price ? parseFloat(formData.sale_price) : undefined;
+    if (productSettings.pricing.autoCalculateSalePrice && !finalSalePrice) {
+      finalSalePrice = finalCostPrice * (1 + productSettings.pricing.defaultProfitMargin / 100);
+      
+      // Aplicar arredondamento se habilitado
+      if (productSettings.pricing.roundPrices && finalSalePrice) {
+        switch (productSettings.pricing.roundingRule) {
+          case 'up':
+            finalSalePrice = Math.ceil(finalSalePrice);
+            break;
+          case 'down':
+            finalSalePrice = Math.floor(finalSalePrice);
+            break;
+          case 'nearest':
+            finalSalePrice = Math.round(finalSalePrice);
+            break;
+        }
+      }
+    }
+    
     const productData = {
       ...formData,
       cost_price: finalCostPrice,
-      sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
+      sale_price: finalSalePrice,
       current_stock: parseFloat(formData.current_stock) || 0,
       min_stock: parseFloat(formData.min_stock) || 0,
       components
@@ -242,9 +291,9 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, onClose }) => {
                 </label>
                 <input
                   type="text"
-                  name="supplier"
-                  value={formData.supplier}
-                  onChange={handleChange}
+                  required={productSettings.validation.minimumStockRequired}
+                  required={productSettings.validation.requireDescription}
+                  required={productSettings.validation.requireDescription}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   placeholder="Nome do fornecedor"
                 />
@@ -499,6 +548,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, onClose }) => {
               </div>
               
               {filteredComponents.length === 0 && (
+                    required={productSettings.validation.requireSupplier && formData.type === 'material_bruto'}
                 <div className="text-center py-8 text-gray-500">
                   <Search className="h-12 w-12 mx-auto mb-2 opacity-50" />
                   <p>Nenhum componente encontrado</p>

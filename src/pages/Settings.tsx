@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Plus, Search, CreditCard as Edit2, Trash2, Shield, User, Mail, Clock, Settings as SettingsIcon, Users, LogOut, FileText, Database } from 'lucide-react';
+import { Plus, Search, CreditCard as Edit2, Trash2, Shield, User, Mail, Clock, Settings as SettingsIcon, Users, LogOut, FileText, Database, Package } from 'lucide-react';
 import { useAuth, User as UserType } from '../contexts/AuthContext';
 import UserModal from '../components/UserModal';
 import PDFSettingsModal from '../components/PDFSettingsModal';
 import ImportExportModal from '../components/ImportExportModal';
+import ProductSettingsModal from '../components/ProductSettingsModal';
 
 const Settings: React.FC = () => {
   const { users, user: currentUser, deleteUser, logout } = useAuth();
@@ -12,6 +13,7 @@ const Settings: React.FC = () => {
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
   const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
+  const [isProductSettingsModalOpen, setIsProductSettingsModalOpen] = useState(false);
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -89,6 +91,13 @@ const Settings: React.FC = () => {
             <span>Novo Usuário</span>
           </button>
           <button
+            onClick={() => setIsProductSettingsModalOpen(true)}
+            className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+          >
+            <Package className="h-5 w-5" />
+            <span>Config. Produtos</span>
+          </button>
+          <button
             onClick={() => setIsPDFModalOpen(true)}
             className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl"
           >
@@ -97,7 +106,7 @@ const Settings: React.FC = () => {
           </button>
           <button
             onClick={() => setIsImportExportModalOpen(true)}
-            className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+            className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 hover:from-purple-700 hover:to-purple-800 transition-all duration-200 shadow-lg hover:shadow-xl"
           >
             <Database className="h-5 w-5" />
             <span>Importar/Exportar</span>
@@ -300,6 +309,11 @@ const Settings: React.FC = () => {
       {/* Modal de Configurações PDF */}
       {isPDFModalOpen && (
         <PDFSettingsModal onClose={() => setIsPDFModalOpen(false)} />
+      )}
+
+      {/* Modal de Configurações de Produtos */}
+      {isProductSettingsModalOpen && (
+        <ProductSettingsModal onClose={() => setIsProductSettingsModalOpen(false)} />
       )}
 
       {/* Modal de Importar/Exportar */}

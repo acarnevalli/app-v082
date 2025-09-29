@@ -2,16 +2,18 @@ import React, { useState } from 'react';
 import { Plus, Search, CreditCard as Edit2, Trash2, Package, Tag, Wrench, DollarSign, AlertTriangle, TrendingUp } from 'lucide-react';
 import { useApp, Product } from '../contexts/AppContext';
 import ProductModal from '../components/ProductModal';
+import { useSettings } from '../contexts/SettingsContext';
 
 const Products: React.FC = () => {
   const { products, deleteProduct } = useApp();
+  const { productSettings } = useSettings();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  const categories = [...new Set(products.map(p => p.category))];
+  const categories = productSettings.categories;
   const productTypes = [
     { value: 'material_bruto', label: 'Material Bruto' },
     { value: 'parte_produto', label: 'Parte de Produto' },
@@ -118,7 +120,10 @@ const Products: React.FC = () => {
       {/* Lista de Produtos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredProducts.map((product) => {
-          const isLowStock = product.current_stock <= product.min_stock;
+          const isLowStock = productSettings.stockAlerts.enabled && 
+            product.current_stock <= (product.min_stock * productSettings.stockAlerts.lowStockThreshold / 100);
+          const isCriticalStock = productSettings.stockAlerts.enabled && 
+            product.current_stock <= (product.min_stock * productSettings.stockAlerts.criticalStockThreshold / 100);
           const profitMargin = product.sale_price 
             ? ((product.sale_price - product.cost_price) / product.sale_price * 100)
             : 0;
@@ -165,21 +170,28 @@ const Products: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Estoque Atual:</span>
                   <div className="flex items-center space-x-2">
-                    <span className={`font-bold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
+                    <span className={`font-bold ${
+                      isCriticalStock ? 'text-red-600' : 
+                      isLowStock ? 'text-yellow-600' : 
+                      'text-green-600'
+                    }`}>
                       {product.current_stock} {product.unit}
                     </span>
-                    {isLowStock && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                    {isCriticalStock && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                    {isLowStock && !isCriticalStock && <AlertTriangle className="h-4 w-4 text-yellow-500" />}
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Custo:</span>
-                  <span className="font-medium text-red-600">
-                    R$ {product.cost_price.toFixed(2)}
-                  </span>
-                </div>
+                {productSettings.display.showCostPrice && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Custo:</span>
+                    <span className="font-medium text-red-600">
+                      R$ {product.cost_price.toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 
-                {product.sale_price && (
+                {product.sale_price && productSettings.display.showProfitMargin && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Preço de Venda:</span>
                     <div className="text-right">
@@ -222,13 +234,21 @@ const Products: React.FC = () => {
                 )}
               </div>
               
-              {isLowStock && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              {(isLowStock || isCriticalStock) && (
+                <div className={`mt-4 p-3 rounded-lg ${
+                  isCriticalStock 
+                    ? 'bg-red-50 border border-red-200' 
+                    : 'bg-yellow-50 border border-yellow-200'
+                }`}>
                   <div className="flex items-center space-x-2">
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
-                    <span className="text-sm font-medium text-red-800">Estoque Baixo</span>
+                    <AlertTriangle className={`h-4 w-4 ${isCriticalStock ? 'text-red-500' : 'text-yellow-500'}`} />
+                    <span className={`text-sm font-medium ${
+                      isCriticalStock ? 'text-red-800' : 'text-yellow-800'
+                    }`}>
+                      {isCriticalStock ? 'Estoque Crítico' : 'Estoque Baixo'}
+                    </span>
                   </div>
-                  <p className="text-xs text-red-600 mt-1">
+                  <p className={`text-xs mt-1 ${isCriticalStock ? 'text-red-600' : 'text-yellow-600'}`}>
                     Estoque atual: {product.current_stock} | Mínimo: {product.min_stock}
                   </p>
                 </div>
