@@ -117,7 +117,7 @@ const Products: React.FC = () => {
 
       {/* Lista de Produtos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredProducts.map((product) => (
+        {filteredProducts.map((product) => {
           const isLowStock = product.current_stock <= product.min_stock;
           const profitMargin = product.sale_price 
             ? ((product.sale_price - product.cost_price) / product.sale_price * 100)
@@ -236,7 +236,7 @@ const Products: React.FC = () => {
             </div>
           </div>
           );
-        ))}
+        })}
       </div>
 
       {filteredProducts.length === 0 && (
